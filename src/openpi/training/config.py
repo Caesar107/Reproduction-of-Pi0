@@ -1009,7 +1009,7 @@ _CONFIGS = [
             decay_lr=1e-6,
         ),
         num_train_steps=30_000,
-        batch_size=16,  # Adjust based on your GPU memory
+        batch_size=1,  # Reduced for JAX GPU memory (originally 16)
         num_workers=4,  # Use 0 to avoid multiprocessing issues
         log_interval=100,
         save_interval=1000,
