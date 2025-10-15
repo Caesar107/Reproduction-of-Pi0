@@ -1,0 +1,20 @@
+import numpy as np
+from pathlib import Path
+
+sample = np.load(Path("train_data/train/0001.npz"))
+print("keys:", sample.files)
+for key in sample.files:
+    arr = sample[key]
+    print(f"{key}: shape={arr.shape}, dtype={arr.dtype}")
+
+
+"""
+keys: ['actions', 'images', 'wrist_images', 'jiont_states', 'ee_states']
+actions: shape=(52, 7), dtype=float32   
+images: shape=(52, 256, 256, 3), dtype=uint8
+wrist_images: shape=(52, 256, 256, 3), dtype=uint8
+jiont_states: shape=(52, 8), dtype=float32
+ee_states: shape=(52, 8), dtype=float32
+
+
+"""

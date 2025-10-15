@@ -1,0 +1,159 @@
+# OpenPI 数据转换和训练流程
+
+## ✅ 第1步：数据转换 - 已完成！
+
+转换脚本: `/home/caesar/openpi/toollllllll/transfer`
+
+**注意：使用 image 模式而不是 video 模式（避免 FFmpeg 依赖问题）**
+
+```bash
+uv run python toollllllll/transfer \
+  --raw-dir train_data/train \
+  --repo-id caesar/my_robot_demo \
+  --task "grab_bottle" \
+  --robot-type "custom_robot" \
+  --fps 30 \
+  --mode image
+```
+
+✅ 结果：
+- Dataset 位置: `/home/caesar/.cache/huggingface/lerobot/caesar/my_robot_demo`
+- Total episodes: 71
+- Total frames: 3680
+
+---
+Pi0Config 默认设定在 src/openpi/models/pi0_config.py:22-33：action_dim=32、action_horizon=50。这 32 维是“模型内部的动作槽位”，用于兼容多种机器人；不足的会在后处理阶段填 0。
+具体机器人时，再由数据配置映射真实关节数。例如 ALOHA 配置 (src/openpi/training/config.py:563-588) 通过 PadStatesAndActions(model_action_dim=32) 把 14 维（双臂关节 12 + 2 个夹爪）放进 32 维槽位；DROID 的 8 维（7 关节 + 1 夹爪）同理 (src/openpi/training/config.py:593-605)。
+因此，“原本的 pi₀”内部仍是 32 维动作，但针对具体 robot 时有效关节自由度由数据/transform 决定：ALOHA 14，自由度更低的机器人就更少，剩下的维度会被 PadStatesAndActions 保证对齐而不参与训练。
+
+
+## ✅ 第2步：计算归一化统计数据 - 已完成！
+
+配置文件：
+- Data Config: `LeRobotCustomRobotDataConfig` in `src/openpi/training/config.py`
+- Train Config: `pi0_custom_robot` in `src/openpi/training/config.py`
+- Policy transforms: `src/openpi/policies/custom_robot_policy.py`
+
+运行命令：
+```bash
+uv run scripts/compute_norm_stats.py --config-name pi0_custom_robot
+```
+
+✅ 结果：
+- 统计数据保存位置: `/home/caesar/openpi/assets/pi0_custom_robot/caesar/my_robot_demo`
+- 处理了 230 个批次
+- State 和 actions 的均值和标准差已计算完成
+
+---
+
+## 🚀 第3步：开始训练
+
+现在可以开始训练了！
+
+### 训练命令：
+
+```bash
+XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 uv run scripts/train.py pi0_custom_robot \
+  --exp-name=grab_bottle_experiment \
+  --overwrite
+```
+
+### 参数说明：
+- `XLA_PYTHON_CLIENT_MEM_FRACTION=0.9`: 允许 JAX 使用最多 90% 的 GPU 内存
+- `pi0_custom_robot`: 使用我们创建的配置
+- `--exp-name=grab_bottle_experiment`: 实验名称（抓瓶子任务）
+- `--overwrite`: 覆盖已存在的 checkpoint（首次训练时使用）
+
+### 训练配置详情：
+- **任务**: grab_bottle (抓瓶子)
+- **模型**: Pi0 (基础模型从 `gs://openpi-assets/checkpoints/pi0_base/params` 加载)
+- **Action 维度**: 7
+- **Action horizon**: 10 (动作块大小)
+- **训练步数**: 30,000
+- **Batch size**: 16
+- **学习率**: 3e-5 (peak) → 1e-6 (decay)
+- **Checkpoint 间隔**: 每 1000 步保存一次
+
+### 训练进度会：
+- ✅ 在终端显示训练 loss 和指标
+- ✅ 保存 checkpoints 到 `checkpoints/pi0_custom_robot/grab_bottle_experiment/` 目录
+- ✅ 记录到 Weights & Biases（如果启用）
+
+### 监控训练：
+训练过程中可以看到：
+- Training loss
+- Learning rate
+- Steps per second
+- ETA (预计完成时间)
+
+---
+
+## 🎯 第4步：运行推理
+
+训练完成后（或训练到一定步数后），启动 policy server：
+
+```bash
+# 使用 20000 步的 checkpoint
+uv run scripts/serve_policy.py policy:checkpoint \
+  --policy.config=pi0_custom_robot \
+  --policy.dir=checkpoints/pi0_custom_robot/grab_bottle_experiment/20000
+```
+
+Policy server 会在 8000 端口启动，等待接收观测数据并返回动作。
+
+### 测试推理（可选）：
+如果需要测试模型，可以发送测试数据到 policy server。
+
+---
+
+## 📝 完成的任务清单
+
+- [x] **第1步**: 数据转换 - 将 npz 数据转换为 LeRobot 格式
+  - 71 episodes, 3680 frames
+  - 使用 image 模式（避免 FFmpeg 问题）
+  
+- [x] **第2步**: 创建训练配置
+  - ✅ `LeRobotCustomRobotDataConfig` - 数据配置
+  - ✅ `pi0_custom_robot` - 训练配置
+  - ✅ `CustomRobotInputs/Outputs` - 数据映射
+  
+- [x] **第3步**: 计算归一化统计
+  - ✅ State 和 actions 的均值/标准差已保存
+  
+- [ ] **第4步**: 开始训练 ⬅️ **当前步骤**
+- [ ] **第5步**: 测试推理
+
+---
+
+## 💡 重要提示
+
+### 数据映射说明：
+你的数据被映射为：
+- `observation.state` (8维) + `observation.end_effector_state` (8维) → `state` (16维)
+- `action` (7维) → `actions` (7维，应用了 delta 变换)
+- `observation.images.top` → `images["top"]`
+- `observation.images.wrist` → `images["wrist"]`
+- `task` → `prompt`
+
+### Delta Actions：
+配置中使用了 delta actions，这意味着：
+- 前 6 个动作维度：相对于当前状态的增量
+- 第 7 个动作维度（gripper）：绝对值
+
+如果你的数据已经是 delta 格式，设置 `use_delta_actions=False`
+
+---
+
+## 🔧 数据格式说明
+
+你的数据集包含：
+- `observation.state`: 关节状态 (8维)
+- `observation.end_effector_state`: 末端执行器状态 (8维)
+- `action`: 动作 (7维)
+- `observation.images.top`: 顶部摄像头图像 (256x256)
+- `observation.images.wrist`: 腕部摄像头图像 (256x256)
+- `task`: 任务标签 ("pen_manipulation")
+
+需要在配置中映射到模型期望的格式。
+
+
