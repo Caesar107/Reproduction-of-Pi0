@@ -233,7 +233,7 @@ class PI0Pytorch(nn.Module):
         for img, img_mask in zip(images, img_masks, strict=True):
 
             def image_embed_func(img):
-                return self.paligemma_with_expert.embed_image(img)
+                return self.paligemma_with_expert.embed_image(img)    # SigLIP编码图像
 
             img_emb = self._apply_checkpoint(image_embed_func, img)
 
@@ -247,7 +247,7 @@ class PI0Pytorch(nn.Module):
 
         # Process language tokens
         def lang_embed_func(lang_tokens):
-            lang_emb = self.paligemma_with_expert.embed_language_tokens(lang_tokens)
+            lang_emb = self.paligemma_with_expert.embed_language_tokens(lang_tokens) # Gemma 2B编码语言
             lang_emb_dim = lang_emb.shape[-1]
             return lang_emb * math.sqrt(lang_emb_dim)
 

@@ -1,6 +1,15 @@
 # 保存为 run_client_demo.py，然后用
 #   uv run python run_client_demo.py
 # 运行即可（确保 serve_policy.py 已经在 8000 端口启动）。
+#source venv-pi0/bin/activate
+
+
+#cp -rv /home/zml/Reproduction-of-Pi0/src/openpi/models_pytorch/transformers_replace/models/* /home/zml/Reproduction-of-Pi0/venv-pi0/lib/python3.11/site-packages/transformers/models/
+
+#CUDA_VISIBLE_DEVICES= JAX_PLATFORMS=cpu JAX_PLATFORM_NAME=cpu XLA_FLAGS="--xla_force_host_platform_device_count=1" XLA_PYTHON_CLIENT_PREALLOCATE=false uv run --active scripts/train_pytorch.py pi0_custom_robot   --exp-name=grab_bottle_experiment_cpu --overwrite
+
+
+
 
 import time
 import numpy as np
