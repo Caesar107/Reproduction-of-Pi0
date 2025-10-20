@@ -1,5 +1,7 @@
 # OpenPI 数据转换和训练流程
 
+先启动虚拟环境: source venv-pi0/bin/activate
+
 ## ✅ 第1步：数据转换 - 已完成！
 
 转换脚本: `/home/caesar/openpi/toollllllll/transfer`
@@ -51,6 +53,9 @@ uv run scripts/compute_norm_stats.py --config-name pi0_custom_robot
 现在可以开始训练了！
 
 ### 训练命令：
+对于jax, 需要先设置 NCCL 库路径：
+export NCCL_LIBDIR="$(python -c "import os,importlib;import nvidia.nccl as n; print(os.path.join(os.path.dirname(n.__file__),'lib'))")"
+export LD_LIBRARY_PATH="$NCCL_LIBDIR:$LD_LIBRARY_PATH"
 
 ```bash
 XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 uv run scripts/train.py pi0_custom_robot \
@@ -79,7 +84,7 @@ uv run --active scripts/train.py pi0_custom_robot \
 - **Action 维度**: 7
 - **Action horizon**: 10 (动作块大小)
 - **训练步数**: 30,000
-- **Batch size**: 16
+- **Batch size**: 32（单卡）
 - **学习率**: 3e-5 (peak) → 1e-6 (decay)
 - **Checkpoint 间隔**: 每 1000 步保存一次
 
@@ -88,12 +93,6 @@ uv run --active scripts/train.py pi0_custom_robot \
 - ✅ 保存 checkpoints 到 `checkpoints/pi0_custom_robot/grab_bottle_experiment/` 目录
 - ✅ 记录到 Weights & Biases（如果启用）
 
-### 监控训练：
-训练过程中可以看到：
-- Training loss
-- Learning rate
-- Steps per second
-- ETA (预计完成时间)
 
 ---
 
@@ -115,29 +114,13 @@ Policy server 会在 8000 端口启动，等待接收观测数据并返回动作
 
 ---
 
-## 📝 完成的任务清单
-
-- [x] **第1步**: 数据转换 - 将 npz 数据转换为 LeRobot 格式
-  - 71 episodes, 3680 frames
-  - 使用 image 模式（避免 FFmpeg 问题）
-  
-- [x] **第2步**: 创建训练配置
-  - ✅ `LeRobotCustomRobotDataConfig` - 数据配置
-  - ✅ `pi0_custom_robot` - 训练配置
-  - ✅ `CustomRobotInputs/Outputs` - 数据映射
-  
-- [x] **第3步**: 计算归一化统计
-  - ✅ State 和 actions 的均值/标准差已保存
-  
-- [ ] **第4步**: 开始训练 ⬅️ **当前步骤**
-- [ ] **第5步**: 测试推理
 
 ---
 
 ## 💡 重要提示
 
 ### 数据映射说明：
-你的数据被映射为：
+数据被映射为：
 - `observation.state` (8维) + `observation.end_effector_state` (8维) → `state` (16维)
 - `action` (7维) → `actions` (7维，应用了 delta 变换)
 - `observation.images.top` → `images["top"]`

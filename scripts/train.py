@@ -227,11 +227,19 @@ def main(config: _config.TrainConfig):
     logging.info(f"Initialized data loader:\n{training_utils.array_tree_to_info(batch)}")
 
     # Log images from first batch to sanity check.
-    images_to_log = [
-        wandb.Image(np.concatenate([np.array(img[i]) for img in batch[0].images.values()], axis=1))
-        for i in range(min(5, len(next(iter(batch[0].images.values())))))
-    ]
-    wandb.log({"camera_views": images_to_log}, step=0)
+    # Use jax.device_get to safely transfer data from GPU to CPU
+    try:
+        # First ensure all data is on CPU before processing
+        images_cpu = jax.tree_util.tree_map(jax.device_get, batch[0].images)
+        images_to_log = [
+            wandb.Image(np.concatenate([np.array(img[i]) for img in images_cpu.values()], axis=1))
+            for i in range(min(5, len(next(iter(images_cpu.values())))))
+        ]
+        wandb.log({"camera_views": images_to_log}, step=0)
+        logging.info("Successfully logged camera views to wandb")
+    except Exception as e:
+        logging.warning(f"Failed to log camera views to wandb: {e}")
+        logging.warning("Continuing training without initial image logging")
 
     train_state, train_state_sharding = init_train_state(config, init_rng, mesh, resume=resuming)
     jax.block_until_ready(train_state)

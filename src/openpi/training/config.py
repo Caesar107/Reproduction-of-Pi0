@@ -992,14 +992,15 @@ _CONFIGS = [
     #
     TrainConfig(
         name="pi0_custom_robot",
+        # Use LoRA for low-memory fine-tuning - freezes most weights and only trains small adapter layers
         model=pi0_config.Pi0Config(
-            # Keep default action_dim=32 to match pre-trained model
-            # Our actual robot actions (7 dims) will be padded to 32 dims
-            action_horizon=10,  # Action chunk size
+            action_horizon=10,
+            paligemma_variant="gemma_2b_lora",  # LoRA for vision-language model
+            action_expert_variant="gemma_300m_lora",  # LoRA for action decoder
         ),
         data=LeRobotCustomRobotDataConfig(
             repo_id="caesar/my_robot_demo",
-            use_delta_actions=True,  # Set to False if your actions are already deltas
+            use_delta_actions=True,
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi0_base/params"),
         lr_schedule=_optimizer.CosineDecaySchedule(
@@ -1009,11 +1010,19 @@ _CONFIGS = [
             decay_lr=1e-6,
         ),
         num_train_steps=30_000,
-        batch_size=16,  # Reduced for JAX GPU memory (originally 16)
-        num_workers=4,  # Use 0 to avoid multiprocessing issues
+        batch_size=32,  # Reduced from 64 to avoid CuDNN memory issues. LoRA + small batch.
+        num_workers=4,
         log_interval=100,
         save_interval=1000,
         keep_period=5000,
+        fsdp_devices=1,  # Start with single device for LoRA
+        # Freeze all parameters except LoRA adapters
+        freeze_filter=pi0_config.Pi0Config(
+            paligemma_variant="gemma_2b_lora",
+            action_expert_variant="gemma_300m_lora",
+        ).get_freeze_filter(),
+        # Turn off EMA for LoRA fine-tuning (saves memory)
+        ema_decay=None,
     ),
     #
     # Debugging configs.

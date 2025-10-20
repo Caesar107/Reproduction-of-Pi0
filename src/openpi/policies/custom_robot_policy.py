@@ -58,13 +58,15 @@ class CustomRobotInputs(transforms.DataTransformFn):
         
         # Like Libero/DROID: we need 3 image slots (base + left_wrist + right_wrist)
         # We only have 2 cameras (top as base, wrist as left_wrist)
-        # So we pad right_wrist with a black image
+        # Create padding image with explicit shape to ensure memory is properly allocated
+        padding_image = np.zeros(top_image.shape, dtype=top_image.dtype)
+        
         inputs = {
             "state": state,  # (16,) - will be normalized
             "image": {
                 "base_0_rgb": top_image,  # Our top camera as base
                 "left_wrist_0_rgb": wrist_image,  # Our wrist camera
-                "right_wrist_0_rgb": np.zeros_like(top_image),  # Padded (no second wrist)
+                "right_wrist_0_rgb": padding_image,  # Padded (no second wrist)
             },
             "image_mask": {
                 "base_0_rgb": np.True_,
