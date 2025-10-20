@@ -71,6 +71,12 @@ uv run --active scripts/train.py pi0_custom_robot \
   --overwrite
 ```
 
+pytorch版本
+```
+CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 
+--XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 
+--python scripts/train_pytorch.py pi0_custom_robot --exp-name=grab_bottle_experiment --overwrite
+```
 
 ### 参数说明：
 - `XLA_PYTHON_CLIENT_MEM_FRACTION=0.9`: 允许 JAX 使用最多 90% 的 GPU 内存

@@ -1010,7 +1010,7 @@ _CONFIGS = [
             decay_lr=1e-6,
         ),
         num_train_steps=30_000,
-        batch_size=32,  # Reduced from 64 to avoid CuDNN memory issues. LoRA + small batch.
+        batch_size=2,  # Reduced from 64 to avoid CuDNN memory issues. LoRA + small batch.
         num_workers=4,
         log_interval=100,
         save_interval=1000,
