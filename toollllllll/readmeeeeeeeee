@@ -78,6 +78,21 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 --python scripts/train_pytorch.py pi0_custom_robot --exp-name=grab_bottle_experiment --overwrite
 ```
 
+验证torch版本
+```
+uv run python -c "import torch;print(torch.__version__, torch.version.cuda, torch.cuda.is_available())"
+```
+
+cpu版本
+```
+CUDA_VISIBLE_DEVICES= JAX_PLATFORMS=cpu JAX_PLATFORM_NAME=cpu
+XLA_FLAGS="--xla_force_host_platform_device_count=1" XLA_PYTHON_CLIENT_PREALLOCATE=false uv run 
+--active scripts/train_pytorch.py pi0_custom_robot   
+--exp-name=grab_bottle_experiment_cpu --overwrite
+```
+
+
+
 ### 参数说明：
 - `XLA_PYTHON_CLIENT_MEM_FRACTION=0.9`: 允许 JAX 使用最多 90% 的 GPU 内存
 - `pi0_custom_robot`: 使用我们创建的配置
